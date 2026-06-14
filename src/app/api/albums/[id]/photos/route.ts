@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import cloudinary from "@/lib/cloudinary";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
@@ -69,45 +70,46 @@ export async function POST(
       );
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const storagePath = `albums/${id}/${timestamp}_${sanitizedName}`;
+    // Convert file to buffer for Cloudinary upload
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from("photos")
-      .upload(storagePath, file, {
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      return NextResponse.json(
-        { error: uploadError.message },
-        { status: 500 }
+    // Upload to Cloudinary
+    const uploadResult = await new Promise<{
+      secure_url: string;
+      public_id: string;
+    }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `dump/albums/${id}`,
+          resource_type: "image",
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result as { secure_url: string; public_id: string });
+          }
+        }
       );
-    }
+      uploadStream.end(buffer);
+    });
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("photos").getPublicUrl(storagePath);
-
-    // Insert photo record
+    // Insert photo record with Cloudinary URL
     const { data, error } = await supabase
       .from("photos")
       .insert({
         album_id: id,
-        url: publicUrl,
-        storage_path: storagePath,
+        url: uploadResult.secure_url,
+        storage_path: uploadResult.public_id,
         caption: caption?.trim() || null,
       })
       .select()
       .single();
 
     if (error) {
-      // Clean up uploaded file if record creation fails
-      await supabase.storage.from("photos").remove([storagePath]);
+      // Clean up uploaded file from Cloudinary if record creation fails
+      await cloudinary.uploader.destroy(uploadResult.public_id);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

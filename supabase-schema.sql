@@ -18,10 +18,6 @@ CREATE TABLE photos (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create storage bucket for photos
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('photos', 'photos', true);
-
 -- RLS policies for albums
 ALTER TABLE albums ENABLE ROW LEVEL SECURITY;
 
@@ -121,36 +117,3 @@ CREATE POLICY "Allow authenticated delete on photos"
   FOR DELETE
   TO authenticated
   USING (true);
-
--- Storage policies for photos bucket
-CREATE POLICY "Allow public read access on photos storage"
-  ON storage.objects
-  FOR SELECT
-  TO anon
-  USING (bucket_id = 'photos');
-
--- Anon storage write access (auth is handled at application layer)
-CREATE POLICY "Allow anon upload to photos storage"
-  ON storage.objects
-  FOR INSERT
-  TO anon
-  WITH CHECK (bucket_id = 'photos');
-
-CREATE POLICY "Allow anon delete from photos storage"
-  ON storage.objects
-  FOR DELETE
-  TO anon
-  USING (bucket_id = 'photos');
-
--- Authenticated storage policies (kept for compatibility)
-CREATE POLICY "Allow authenticated upload to photos storage"
-  ON storage.objects
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (bucket_id = 'photos');
-
-CREATE POLICY "Allow authenticated delete from photos storage"
-  ON storage.objects
-  FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'photos');

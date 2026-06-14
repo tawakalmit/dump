@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import cloudinary from "@/lib/cloudinary";
 
 export async function DELETE(
   request: NextRequest,
@@ -11,7 +12,7 @@ export async function DELETE(
 
   const { photoId } = await params;
 
-  // Get photo to find storage path
+  // Get photo to find Cloudinary public_id (stored in storage_path)
   const { data: photo, error: fetchError } = await supabase
     .from("photos")
     .select("storage_path")
@@ -22,9 +23,9 @@ export async function DELETE(
     return NextResponse.json({ error: fetchError.message }, { status: 404 });
   }
 
-  // Delete from storage
+  // Delete from Cloudinary
   if (photo.storage_path) {
-    await supabase.storage.from("photos").remove([photo.storage_path]);
+    await cloudinary.uploader.destroy(photo.storage_path);
   }
 
   // Delete record
