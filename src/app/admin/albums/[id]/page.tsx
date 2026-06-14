@@ -28,6 +28,7 @@ interface UploadFileState {
   file: File;
   status: UploadFileStatus;
   error?: string;
+  previewUrl: string;
 }
 
 const CONCURRENCY_LIMIT = 5;
@@ -53,6 +54,14 @@ export default function EditAlbumPage() {
   const [uploadFiles, setUploadFiles] = useState<UploadFileState[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clean up preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      uploadFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const uploadedCount = uploadFiles.filter((f) => f.status === "done").length;
   const failedCount = uploadFiles.filter((f) => f.status === "failed").length;
@@ -185,10 +194,14 @@ export default function EditAlbumPage() {
     setMessage(null);
     setIsUploading(true);
 
-    // Initialize upload state for all files
+    // Clean up any existing preview URLs before creating new ones
+    uploadFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+
+    // Initialize upload state for all files with preview URLs
     const fileStates: UploadFileState[] = Array.from(files).map((file) => ({
       file,
       status: "pending" as UploadFileStatus,
+      previewUrl: URL.createObjectURL(file),
     }));
     setUploadFiles(fileStates);
 
@@ -223,7 +236,60 @@ export default function EditAlbumPage() {
   };
 
   const handleDismissUploadProgress = () => {
+    // Clean up object URLs to free memory
+    uploadFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     setUploadFiles([]);
+  };
+
+  const handleRetryFailed = async () => {
+    // Get indices of failed files
+    const failedIndices: number[] = [];
+    setUploadFiles((prev) =>
+      prev.map((f, i) => {
+        if (f.status === "failed") {
+          failedIndices.push(i);
+          return { ...f, status: "pending" as UploadFileStatus, error: undefined };
+        }
+        return f;
+      })
+    );
+
+    if (failedIndices.length === 0) return;
+
+    setIsUploading(true);
+
+    let currentIndex = 0;
+
+    const processNext = async (): Promise<void> => {
+      while (currentIndex < failedIndices.length) {
+        const idx = currentIndex;
+        currentIndex++;
+        const fileIdx = failedIndices[idx];
+        await uploadSingleFile(uploadFiles[fileIdx].file, fileIdx);
+      }
+    };
+
+    const workers = Array.from(
+      { length: Math.min(CONCURRENCY_LIMIT, failedIndices.length) },
+      () => processNext()
+    );
+
+    await Promise.all(workers);
+    await fetchPhotos();
+    setIsUploading(false);
+  };
+
+  const handleRetrySingle = async (index: number) => {
+    setUploadFiles((prev) =>
+      prev.map((f, i) =>
+        i === index ? { ...f, status: "pending" as UploadFileStatus, error: undefined } : f
+      )
+    );
+
+    setIsUploading(true);
+    await uploadSingleFile(uploadFiles[index].file, index);
+    await fetchPhotos();
+    setIsUploading(false);
   };
 
   const handleSetCover = async (photoId: string) => {
@@ -555,6 +621,69 @@ export default function EditAlbumPage() {
                         <span className="text-red-400 ml-2">{item.error}</span>
                       </div>
                     ))}
+                </div>
+              )}
+
+              {/* Failed Files Thumbnail Preview */}
+              {failedCount > 0 && !isUploading && (
+                <div className="mt-6 border-t border-gray-700 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-red-400 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Failed Uploads ({failedCount})
+                    </h4>
+                    <button
+                      onClick={handleRetryFailed}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      Retry All Failed
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-80 overflow-y-auto">
+                    {uploadFiles
+                      .map((item, idx) => ({ item, idx }))
+                      .filter(({ item }) => item.status === "failed")
+                      .map(({ item, idx }) => (
+                        <div
+                          key={idx}
+                          className="relative group bg-gray-900 rounded-lg overflow-hidden border border-red-500/40"
+                        >
+                          <div className="aspect-square relative">
+                            <img
+                              src={item.previewUrl}
+                              alt={item.file.name}
+                              className="w-full h-full object-cover opacity-70"
+                            />
+                            <div className="absolute inset-0 bg-red-900/20" />
+                            <div className="absolute top-1 right-1">
+                              <svg className="w-5 h-5 text-red-400 drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </div>
+                            {/* Retry single file button */}
+                            <button
+                              onClick={() => handleRetrySingle(idx)}
+                              className="absolute bottom-1 right-1 w-6 h-6 flex items-center justify-center bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                              title="Retry this file"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="p-1.5">
+                            <p className="text-[10px] text-gray-300 truncate" title={item.file.name}>
+                              {item.file.name}
+                            </p>
+                            <p className="text-[10px] text-red-400 truncate" title={item.error}>
+                              {item.error}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
             </div>
