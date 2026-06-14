@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -22,6 +22,16 @@ interface Photo {
   created_at: string;
 }
 
+type UploadFileStatus = "pending" | "uploading" | "done" | "failed";
+
+interface UploadFileState {
+  file: File;
+  status: UploadFileStatus;
+  error?: string;
+}
+
+const CONCURRENCY_LIMIT = 5;
+
 export default function EditAlbumPage() {
   const router = useRouter();
   const params = useParams();
@@ -31,7 +41,6 @@ export default function EditAlbumPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -39,6 +48,19 @@ export default function EditAlbumPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+
+  // Upload state
+  const [uploadFiles, setUploadFiles] = useState<UploadFileState[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadedCount = uploadFiles.filter((f) => f.status === "done").length;
+  const failedCount = uploadFiles.filter((f) => f.status === "failed").length;
+  const totalCount = uploadFiles.length;
+  const progressPercent =
+    totalCount > 0
+      ? Math.round(((uploadedCount + failedCount) / totalCount) * 100)
+      : 0;
 
   const fetchAlbum = useCallback(async () => {
     try {
@@ -101,41 +123,94 @@ export default function EditAlbumPage() {
     }
   };
 
+  const uploadSingleFile = async (
+    file: File,
+    index: number
+  ): Promise<void> => {
+    setUploadFiles((prev) =>
+      prev.map((f, i) => (i === index ? { ...f, status: "uploading" } : f))
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`/api/albums/${albumId}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        setUploadFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, status: "done" } : f))
+        );
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setUploadFiles((prev) =>
+          prev.map((f, i) =>
+            i === index
+              ? { ...f, status: "failed", error: data.error || "Upload failed" }
+              : f
+          )
+        );
+      }
+    } catch {
+      setUploadFiles((prev) =>
+        prev.map((f, i) =>
+          i === index
+            ? { ...f, status: "failed", error: "Network error" }
+            : f
+        )
+      );
+    }
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setUploading(true);
     setMessage(null);
+    setIsUploading(true);
 
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const formData = new FormData();
-        formData.append("file", files[i]);
+    // Initialize upload state for all files
+    const fileStates: UploadFileState[] = Array.from(files).map((file) => ({
+      file,
+      status: "pending" as UploadFileStatus,
+    }));
+    setUploadFiles(fileStates);
 
-        const res = await fetch(`/api/albums/${albumId}/photos`, {
-          method: "POST",
-          body: formData,
-        });
+    // Process files with concurrency limit
+    const fileArray = Array.from(files);
+    let currentIndex = 0;
 
-        if (!res.ok) {
-          const data = await res.json();
-          setMessage({
-            type: "error",
-            text: data.error || `Failed to upload ${files[i].name}`,
-          });
-        }
+    const processNext = async (): Promise<void> => {
+      while (currentIndex < fileArray.length) {
+        const idx = currentIndex;
+        currentIndex++;
+        await uploadSingleFile(fileArray[idx], idx);
       }
+    };
 
-      await fetchPhotos();
-      setMessage({ type: "success", text: "Photos uploaded successfully" });
-    } catch {
-      setMessage({ type: "error", text: "Upload failed" });
-    } finally {
-      setUploading(false);
-      // Reset file input
-      e.target.value = "";
+    // Start workers up to the concurrency limit
+    const workers = Array.from(
+      { length: Math.min(CONCURRENCY_LIMIT, fileArray.length) },
+      () => processNext()
+    );
+
+    await Promise.all(workers);
+
+    // Refresh photos after all uploads complete
+    await fetchPhotos();
+    setIsUploading(false);
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
+  };
+
+  const handleDismissUploadProgress = () => {
+    setUploadFiles([]);
   };
 
   const handleSetCover = async (photoId: string) => {
@@ -309,11 +384,12 @@ export default function EditAlbumPage() {
           <div className="flex items-center gap-4">
             <label className="flex-1 relative">
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 multiple
                 onChange={handleUpload}
-                disabled={uploading}
+                disabled={isUploading}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               <div className="flex items-center justify-center px-6 py-8 border-2 border-dashed border-gray-700 rounded-xl hover:border-gray-500 transition-colors">
@@ -332,17 +408,144 @@ export default function EditAlbumPage() {
                     />
                   </svg>
                   <p className="text-gray-400 text-sm">
-                    {uploading
-                      ? "Uploading..."
+                    {isUploading
+                      ? "Upload in progress..."
                       : "Click to upload or drag and drop"}
                   </p>
                   <p className="text-gray-500 text-xs mt-1">
-                    PNG, JPG, GIF, WebP
+                    PNG, JPG, GIF, WebP - supports 100+ files at once
                   </p>
                 </div>
               </div>
             </label>
           </div>
+
+          {/* Upload Progress UI */}
+          {uploadFiles.length > 0 && (
+            <div className="mt-6 bg-gray-800 border border-gray-700 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-white">
+                  {isUploading
+                    ? `Uploading ${uploadedCount + failedCount} of ${totalCount} photos...`
+                    : `Upload complete`}
+                </h3>
+                {!isUploading && (
+                  <button
+                    onClick={handleDismissUploadProgress}
+                    className="text-gray-400 hover:text-white text-sm transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-700 rounded-full h-3 mb-3 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300 ease-out"
+                  style={{
+                    width: `${progressPercent}%`,
+                    backgroundColor:
+                      failedCount > 0 && !isUploading
+                        ? "#f59e0b"
+                        : "#ef4444",
+                  }}
+                />
+              </div>
+
+              {/* Stats */}
+              <div className="flex gap-4 text-xs">
+                <span className="text-gray-400">
+                  Total: <span className="text-white font-medium">{totalCount}</span>
+                </span>
+                <span className="text-green-400">
+                  Success: <span className="font-medium">{uploadedCount}</span>
+                </span>
+                {failedCount > 0 && (
+                  <span className="text-red-400">
+                    Failed: <span className="font-medium">{failedCount}</span>
+                  </span>
+                )}
+                {isUploading && (
+                  <span className="text-blue-400">
+                    In progress:{" "}
+                    <span className="font-medium">
+                      {uploadFiles.filter((f) => f.status === "uploading").length}
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {/* Individual file list (scrollable for many files) */}
+              {totalCount <= 50 && (
+                <div className="mt-4 max-h-48 overflow-y-auto space-y-1">
+                  {uploadFiles.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between py-1.5 px-2 rounded text-xs"
+                    >
+                      <span className="text-gray-300 truncate max-w-[200px]">
+                        {item.file.name}
+                      </span>
+                      <span
+                        className={`ml-2 flex-shrink-0 ${
+                          item.status === "done"
+                            ? "text-green-400"
+                            : item.status === "failed"
+                            ? "text-red-400"
+                            : item.status === "uploading"
+                            ? "text-blue-400"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {item.status === "done" && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {item.status === "failed" && (
+                          <span title={item.error}>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </span>
+                        )}
+                        {item.status === "uploading" && (
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                        )}
+                        {item.status === "pending" && (
+                          <span className="text-gray-500">Pending</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Summary for large batches */}
+              {totalCount > 50 && failedCount > 0 && !isUploading && (
+                <div className="mt-4 max-h-32 overflow-y-auto space-y-1">
+                  <p className="text-xs text-gray-400 mb-2">Failed files:</p>
+                  {uploadFiles
+                    .filter((f) => f.status === "failed")
+                    .map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between py-1 px-2 rounded text-xs"
+                      >
+                        <span className="text-red-300 truncate max-w-[200px]">
+                          {item.file.name}
+                        </span>
+                        <span className="text-red-400 ml-2">{item.error}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Photos Grid */}
@@ -382,22 +585,37 @@ export default function EditAlbumPage() {
                           Cover
                         </div>
                       )}
+                      {/* Always-visible delete button */}
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors shadow-lg"
+                        title="Delete photo"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    {/* Hover overlay with Set as Cover button */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-3 pointer-events-none">
                       {!isCover && (
                         <button
                           onClick={() => handleSetCover(photo.id)}
-                          className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg backdrop-blur-sm transition-colors"
+                          className="pointer-events-auto px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg backdrop-blur-sm transition-colors"
                         >
                           Set as Cover
                         </button>
                       )}
-                      <button
-                        onClick={() => handleDeletePhoto(photo.id)}
-                        className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white text-xs font-medium rounded-lg backdrop-blur-sm transition-colors"
-                      >
-                        Delete
-                      </button>
                     </div>
                   </div>
                 );
