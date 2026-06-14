@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Remove existing static files and scaffold a new Next.js project with TypeScript, Tailwind CSS, and Supabase client in the repository root.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Remove existing files: index.html, css/, js/, images/ directories",
     "Run 'unset NODE_OPTIONS && npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias @/* --use-npm --no-git' to scaffold the Next.js project in the current directory. Use --no-git to avoid reinitializing git.",
@@ -26,5 +26,5 @@
     "unset NODE_OPTIONS && npm run build"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "1. Google Fonts (Geist) are not accessible from this environment due to network restrictions. Replaced with system font stack in layout.tsx. 2. create-next-app refuses to run in non-empty directories - had to temporarily move .agents and README.md out before scaffolding, then restore them. The .agents directory was lost during this process and had to be recreated. 3. .gitignore pattern .env* is too broad and ignores .env.example - added !.env.example exception. 4. Next.js version is 16.2.9 (latest as of scaffold time). 5. All npm commands require 'unset NODE_OPTIONS &&' prefix due to proxy bootstrap preload."
 }
