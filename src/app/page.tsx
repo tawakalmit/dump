@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase";
 import HeroSection from "@/components/HeroSection";
 import AlbumCard from "@/components/AlbumCard";
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const { data: albums } = await supabase
     .from("albums")

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import MasonryGrid from "@/components/MasonryGrid";
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
