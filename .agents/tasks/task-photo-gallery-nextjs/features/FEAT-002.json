@@ -2,10 +2,33 @@
   "id": "FEAT-002",
   "type": "feature",
   "description": "Implement the public-facing pages: Home page with hero section and album list, and album detail page with Pinterest-style masonry grid.",
-  "status": "pending",
-  "steps": [],
-  "acceptance_criteria": [],
-  "verification": [],
+  "status": "completed",
+  "steps": [
+    "Create src/components/HeroSection.tsx with full-width gradient hero",
+    "Create src/components/MasonryGrid.tsx with CSS columns layout",
+    "Create src/components/AlbumCard.tsx with image, name, photo count, and hover effects",
+    "Update src/app/page.tsx as Server Component fetching albums from Supabase",
+    "Create src/app/[slug]/page.tsx for album detail with masonry photo grid",
+    "Update src/app/layout.tsx with navbar and dark theme",
+    "Update src/app/globals.css with dark theme variables and system fonts",
+    "Update next.config.ts with remotePatterns for supabase.co images",
+    "Verify build passes with unset NODE_OPTIONS && npm run build"
+  ],
+  "acceptance_criteria": [
+    "Hero section displays 'Welcome to Dump' with gradient background",
+    "Home page fetches and displays albums from Supabase in masonry-style grid",
+    "Album cards show cover image, name, photo count with hover effects",
+    "Clicking album card navigates to /[slug] album detail page",
+    "Album detail page shows photos in Pinterest-style masonry grid",
+    "Album detail handles not found case with notFound()",
+    "Layout has sticky navbar with 'Dump' linked to home",
+    "Dark theme applied globally",
+    "Next.js Image configured for Supabase remote patterns",
+    "Build completes without errors"
+  ],
+  "verification": [
+    "unset NODE_OPTIONS && npm run build"
+  ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "1. Next.js 16 uses Promise-based params in dynamic route pages (params: Promise<{ slug: string }>) requiring await. 2. Used 'unoptimized' prop on Next.js Image in AlbumCard to avoid image optimization issues with dynamic Supabase URLs. 3. Used regular img tags in album detail for photos since they have varied natural heights ideal for masonry. 4. The home page route is static (prerendered) while [slug] is dynamic (server-rendered on demand). 5. Supabase aggregation query with photos(count) returns data in format album.photos[0].count."
 }
