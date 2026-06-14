@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { requireAuth } from "@/lib/auth";
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   const { photoId } = await params;
 
   // Get photo to find storage path
@@ -37,6 +41,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   const { id, photoId } = await params;
 
   // Get photo URL
