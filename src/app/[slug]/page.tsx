@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import MasonryGrid from "@/components/MasonryGrid";
+import PhotoGallery from "@/components/PhotoGallery";
 
 export const dynamic = 'force-dynamic';
 
@@ -67,26 +67,7 @@ export default async function AlbumDetailPage({ params }: PageProps) {
             </p>
           </div>
         ) : (
-          <MasonryGrid>
-            {photos.map((photo) => (
-              <div
-                key={photo.id}
-                className="break-inside-avoid mb-4 rounded-xl overflow-hidden bg-gray-800 shadow-lg hover:shadow-2xl transition-shadow duration-300"
-              >
-                <img
-                  src={photo.url}
-                  alt={photo.caption || "Photo"}
-                  className="w-full h-auto"
-                  loading="lazy"
-                />
-                {photo.caption && (
-                  <div className="p-3">
-                    <p className="text-gray-300 text-sm">{photo.caption}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </MasonryGrid>
+          <PhotoGallery photos={photos} />
         )}
       </div>
     </main>
