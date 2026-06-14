@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getCloudinaryThumbnail } from "@/lib/cloudinary-url";
 
 interface Album {
   id: string;
@@ -20,7 +21,7 @@ export default function AlbumCard({ album, photoCount }: AlbumCardProps) {
       <div className="relative overflow-hidden rounded-2xl bg-gray-800 shadow-lg transition-transform duration-300 group-hover:scale-[1.02] group-hover:shadow-2xl">
         {album.cover_photo_url ? (
           <Image
-            src={album.cover_photo_url}
+            src={getCloudinaryThumbnail(album.cover_photo_url, 600)}
             alt={album.name}
             width={400}
             height={300}

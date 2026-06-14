@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import MasonryGrid from "./MasonryGrid";
+import { getCloudinaryOptimized } from "@/lib/cloudinary-url";
 
 interface Photo {
   id: string;
@@ -77,7 +78,7 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
           >
             <div className="relative overflow-hidden">
               <img
-                src={photo.url}
+                src={getCloudinaryOptimized(photo.url, 800)}
                 alt={photo.caption || "Photo"}
                 className="w-full h-auto group-hover:brightness-90 transition-all duration-300"
                 loading="lazy"
