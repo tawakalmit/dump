@@ -137,6 +137,8 @@ export default function EditAlbumPage() {
     index: number
   ): Promise<void> => {
     const MAX_RETRIES = 3;
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
     setUploadFiles((prev) =>
       prev.map((f, i) => (i === index ? { ...f, status: "uploading" } : f))
@@ -144,31 +146,64 @@ export default function EditAlbumPage() {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        // Step 1: Upload directly to Cloudinary from browser
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("upload_preset", uploadPreset || "");
+        formData.append("folder", `dump/albums/${albumId}`);
 
-        const res = await fetch(`/api/albums/${albumId}/photos`, {
+        const cloudinaryRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!cloudinaryRes.ok) {
+          const errData = await cloudinaryRes.json().catch(() => ({}));
+          if (attempt === MAX_RETRIES) {
+            setUploadFiles((prev) =>
+              prev.map((f, i) =>
+                i === index
+                  ? { ...f, status: "failed", error: errData.error?.message || "Upload to Cloudinary failed" }
+                  : f
+              )
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+
+        const cloudinaryData = await cloudinaryRes.json();
+        const { secure_url, public_id } = cloudinaryData;
+
+        // Step 2: Save photo record to database via lightweight API route
+        const saveRes = await fetch(`/api/albums/${albumId}/photos/save`, {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: secure_url,
+            public_id: public_id,
+          }),
         });
 
-        if (res.ok) {
+        if (saveRes.ok) {
           setUploadFiles((prev) =>
             prev.map((f, i) => (i === index ? { ...f, status: "done" } : f))
           );
           return;
         } else {
-          const data = await res.json().catch(() => ({}));
+          const data = await saveRes.json().catch(() => ({}));
           if (attempt === MAX_RETRIES) {
             setUploadFiles((prev) =>
               prev.map((f, i) =>
                 i === index
-                  ? { ...f, status: "failed", error: data.error || "Upload failed" }
+                  ? { ...f, status: "failed", error: data.error || "Failed to save record" }
                   : f
               )
             );
           }
-          // Wait before retrying
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         }
       } catch {
@@ -181,7 +216,6 @@ export default function EditAlbumPage() {
             )
           );
         }
-        // Wait before retrying
         await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
     }
