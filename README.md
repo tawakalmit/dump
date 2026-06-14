@@ -1,64 +1,36 @@
-# Gallery Foto
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Website gallery foto dengan desain responsif dan fitur lightbox interaktif.
+## Getting Started
 
-## Fitur
+First, run the development server:
 
-- **Grid Responsif** - Layout grid yang menyesuaikan ukuran layar (desktop, tablet, mobile)
-- **Filter Kategori** - Filter foto berdasarkan kategori (Alam, Kota, Orang)
-- **Lightbox** - Lihat foto dalam mode layar penuh dengan navigasi
-- **Navigasi Keyboard** - Gunakan panah kiri/kanan untuk navigasi, Escape untuk menutup
-- **Animasi** - Efek hover dan transisi yang halus
-- **Lazy Loading** - Gambar dimuat secara bertahap untuk performa optimal
-
-## Cara Penggunaan
-
-1. Buka file `index.html` di browser
-2. Klik tombol kategori untuk memfilter foto
-3. Klik foto untuk membuka lightbox
-4. Gunakan tombol panah atau keyboard untuk navigasi antar foto
-
-## Struktur File
-
-```
-.
-├── index.html          # Halaman utama
-├── css/
-│   └── style.css       # Stylesheet
-├── js/
-│   └── main.js         # JavaScript interaktif
-├── images/             # Folder untuk gambar lokal
-└── README.md           # Dokumentasi
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Teknologi
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-- HTML5
-- CSS3 (Grid, Flexbox, Custom Properties, Animations)
-- Vanilla JavaScript (ES6+)
-- Responsive Design (Mobile-first approach)
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Kustomisasi
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### Menambah Foto Baru
+## Learn More
 
-Tambahkan elemen berikut ke dalam `.gallery__grid`:
+To learn more about Next.js, take a look at the following resources:
 
-```html
-<div class="gallery__item" data-category="nature">
-    <img src="path/ke/foto.jpg" alt="Deskripsi foto" loading="lazy">
-    <div class="gallery__overlay">
-        <h3>Judul Foto</h3>
-        <p>Deskripsi singkat</p>
-    </div>
-</div>
-```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### Menambah Kategori Baru
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-1. Tambahkan tombol filter baru di bagian `.filters`:
-```html
-<button class="filters__btn" data-filter="kategori-baru">Nama Kategori</button>
-```
+## Deploy on Vercel
 
-2. Gunakan `data-category="kategori-baru"` pada item gallery yang sesuai.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

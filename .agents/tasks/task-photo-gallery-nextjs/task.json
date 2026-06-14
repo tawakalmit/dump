@@ -1,0 +1,11 @@
+{
+  "id": "task-photo-gallery-nextjs",
+  "title": "Photo Gallery Website with Next.js, Tailwind CSS, and Supabase",
+  "description": "Build a photo gallery website with Pinterest-style layout, album management, and admin panel using Next.js App Router, Tailwind CSS, and Supabase.",
+  "status": "in_progress",
+  "features": [
+    "FEAT-001",
+    "FEAT-002",
+    "FEAT-003"
+  ]
+}

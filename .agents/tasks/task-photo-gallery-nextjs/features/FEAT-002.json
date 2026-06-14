@@ -1,0 +1,11 @@
+{
+  "id": "FEAT-002",
+  "type": "feature",
+  "description": "Implement the public-facing pages: Home page with hero section and album list, and album detail page with Pinterest-style masonry grid.",
+  "status": "pending",
+  "steps": [],
+  "acceptance_criteria": [],
+  "verification": [],
+  "blocked_reason": null,
+  "findings": ""
+}

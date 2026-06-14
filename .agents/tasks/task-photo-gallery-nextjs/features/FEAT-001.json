@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Remove existing static files and scaffold a new Next.js project with TypeScript, Tailwind CSS, and Supabase client in the repository root.",
+  "status": "in_progress",
+  "steps": [
+    "Remove existing files: index.html, css/, js/, images/ directories",
+    "Run 'unset NODE_OPTIONS && npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias @/* --use-npm --no-git' to scaffold the Next.js project in the current directory. Use --no-git to avoid reinitializing git.",
+    "Install Supabase client: 'unset NODE_OPTIONS && npm install @supabase/supabase-js'",
+    "Create .env.local with placeholder Supabase credentials (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) and admin credentials (ADMIN_USERNAME, ADMIN_PASSWORD)",
+    "Create .env.example with the same keys but empty values for documentation",
+    "Create src/lib/supabase.ts with Supabase client initialization using createClient from @supabase/supabase-js",
+    "Create supabase-schema.sql with the database schema: albums table (id uuid primary key, name text, slug text unique, cover_photo_url text, description text, created_at timestamp) and photos table (id uuid primary key, album_id uuid references albums, url text, caption text, storage_path text, created_at timestamp). Include Supabase Storage bucket creation for 'photos'.",
+    "Verify the project builds: 'unset NODE_OPTIONS && npm run build'"
+  ],
+  "acceptance_criteria": [
+    "Old static files (index.html, css/, js/, images/) are removed",
+    "Next.js project scaffolded with TypeScript and Tailwind CSS",
+    "@supabase/supabase-js is in package.json dependencies",
+    ".env.local contains all required environment variables",
+    "src/lib/supabase.ts exports a configured Supabase client",
+    "supabase-schema.sql contains valid SQL for albums and photos tables",
+    "Running 'unset NODE_OPTIONS && npm run build' completes successfully"
+  ],
+  "verification": [
+    "unset NODE_OPTIONS && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

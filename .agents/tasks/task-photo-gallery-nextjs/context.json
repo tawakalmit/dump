@@ -1,0 +1,30 @@
+{
+  "project_type": "Next.js 14 App Router with Tailwind CSS and Supabase",
+  "language": "TypeScript",
+  "build_system": "npm with Next.js CLI",
+  "test_framework": "Next.js build validation (no test runner specified)",
+  "build_command": "unset NODE_OPTIONS && npm run build",
+  "test_command": "unset NODE_OPTIONS && npm run build",
+  "verification_instructions": "1. Run 'unset NODE_OPTIONS && npm run build' to verify the project compiles without errors. 2. Check that all pages render correctly by inspecting the build output.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "1. Remove existing static files (index.html, css/, js/, images/). 2. Run 'unset NODE_OPTIONS && npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias @/* --use-npm' to scaffold. 3. Install supabase client: 'unset NODE_OPTIONS && npm install @supabase/supabase-js'.",
+  "environment_constraints": "NODE_OPTIONS env var must be unset before running npm/npx commands due to a preload script issue. Use 'unset NODE_OPTIONS &&' prefix for all npm/node commands.",
+  "contribution_requirements": "Replace all existing static files with the new Next.js project. Commit to a new feature branch.",
+  "key_patterns": "Next.js App Router with src/app directory structure. Tailwind CSS for styling. Supabase for database and storage. Pinterest-style masonry grid layout. Admin authentication via hardcoded credentials in .env.",
+  "relevant_files": [
+    "src/app/page.tsx",
+    "src/app/layout.tsx",
+    "src/app/[slug]/page.tsx",
+    "src/app/admin/page.tsx",
+    "src/app/admin/albums/page.tsx",
+    "src/app/admin/albums/[id]/page.tsx",
+    "src/app/api/auth/route.ts",
+    "src/lib/supabase.ts",
+    "src/components/AlbumCard.tsx",
+    "src/components/MasonryGrid.tsx",
+    "src/components/HeroSection.tsx",
+    ".env.local",
+    "supabase-schema.sql"
+  ],
+  "directory_structure": "src/app/ - Next.js App Router pages and API routes. src/lib/ - Supabase client and utilities. src/components/ - Reusable React components. public/ - Static assets."
+}
