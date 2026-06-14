@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import cloudinary from "@/lib/cloudinary";
 
 export async function GET(
   request: NextRequest,
@@ -69,19 +70,23 @@ export async function DELETE(
 
   const { id } = await params;
 
-  // First get all photos to clean up storage
+  // First get all photos to clean up from Cloudinary
   const { data: photos } = await supabase
     .from("photos")
     .select("storage_path")
     .eq("album_id", id);
 
-  // Delete files from storage
+  // Delete files from Cloudinary
   if (photos && photos.length > 0) {
-    const paths = photos
+    const publicIds = photos
       .map((p) => p.storage_path)
       .filter(Boolean) as string[];
-    if (paths.length > 0) {
-      await supabase.storage.from("photos").remove(paths);
+    if (publicIds.length > 0) {
+      // Cloudinary supports up to 100 resources per delete call, so chunk if needed
+      for (let i = 0; i < publicIds.length; i += 100) {
+        const batch = publicIds.slice(i, i + 100);
+        await cloudinary.api.delete_resources(batch);
+      }
     }
   }
 
