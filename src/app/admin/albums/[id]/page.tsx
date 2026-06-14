@@ -127,41 +127,54 @@ export default function EditAlbumPage() {
     file: File,
     index: number
   ): Promise<void> => {
+    const MAX_RETRIES = 3;
+
     setUploadFiles((prev) =>
       prev.map((f, i) => (i === index ? { ...f, status: "uploading" } : f))
     );
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
 
-      const res = await fetch(`/api/albums/${albumId}/photos`, {
-        method: "POST",
-        body: formData,
-      });
+        const res = await fetch(`/api/albums/${albumId}/photos`, {
+          method: "POST",
+          body: formData,
+        });
 
-      if (res.ok) {
-        setUploadFiles((prev) =>
-          prev.map((f, i) => (i === index ? { ...f, status: "done" } : f))
-        );
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setUploadFiles((prev) =>
-          prev.map((f, i) =>
-            i === index
-              ? { ...f, status: "failed", error: data.error || "Upload failed" }
-              : f
-          )
-        );
+        if (res.ok) {
+          setUploadFiles((prev) =>
+            prev.map((f, i) => (i === index ? { ...f, status: "done" } : f))
+          );
+          return;
+        } else {
+          const data = await res.json().catch(() => ({}));
+          if (attempt === MAX_RETRIES) {
+            setUploadFiles((prev) =>
+              prev.map((f, i) =>
+                i === index
+                  ? { ...f, status: "failed", error: data.error || "Upload failed" }
+                  : f
+              )
+            );
+          }
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+      } catch {
+        if (attempt === MAX_RETRIES) {
+          setUploadFiles((prev) =>
+            prev.map((f, i) =>
+              i === index
+                ? { ...f, status: "failed", error: "Network error" }
+                : f
+            )
+          );
+        }
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
-    } catch {
-      setUploadFiles((prev) =>
-        prev.map((f, i) =>
-          i === index
-            ? { ...f, status: "failed", error: "Network error" }
-            : f
-        )
-      );
     }
   };
 

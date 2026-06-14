@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import cloudinary from "@/lib/cloudinary";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -54,7 +54,7 @@ export async function POST(
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File size exceeds maximum of 10MB" },
+        { error: "File size exceeds maximum of 50MB" },
         { status: 400 }
       );
     }
