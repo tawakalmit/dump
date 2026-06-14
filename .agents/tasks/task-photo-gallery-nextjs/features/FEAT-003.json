@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feature",
   "description": "Implement admin authentication and admin pages for creating albums and uploading photos.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [],
   "acceptance_criteria": [],
   "verification": [],
