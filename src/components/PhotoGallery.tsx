@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import MasonryGrid from "./MasonryGrid";
 import { getCloudinaryOptimized } from "@/lib/cloudinary-url";
 
@@ -16,28 +16,83 @@ interface PhotoGalleryProps {
 
 export default function PhotoGallery({ photos }: PhotoGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(
+    null
+  );
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [showArrows, setShowArrows] = useState(true);
+
+  // Touch/swipe state
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const minSwipeDistance = 50;
 
   const openLightbox = (index: number) => {
+    setSlideDirection(null);
     setSelectedIndex(index);
   };
 
   const closeLightbox = useCallback(() => {
     setSelectedIndex(null);
+    setSlideDirection(null);
+    setIsAnimating(false);
   }, []);
 
   const goToPrev = useCallback(() => {
-    setSelectedIndex((prev) => {
-      if (prev === null) return null;
-      return prev === 0 ? photos.length - 1 : prev - 1;
-    });
-  }, [photos.length]);
+    if (isAnimating) return;
+    setSlideDirection("right");
+    setIsAnimating(true);
+    setTimeout(() => {
+      setSelectedIndex((prev) => {
+        if (prev === null) return null;
+        return prev === 0 ? photos.length - 1 : prev - 1;
+      });
+      setIsAnimating(false);
+    }, 200);
+  }, [photos.length, isAnimating]);
 
   const goToNext = useCallback(() => {
-    setSelectedIndex((prev) => {
-      if (prev === null) return null;
-      return prev === photos.length - 1 ? 0 : prev + 1;
-    });
-  }, [photos.length]);
+    if (isAnimating) return;
+    setSlideDirection("left");
+    setIsAnimating(true);
+    setTimeout(() => {
+      setSelectedIndex((prev) => {
+        if (prev === null) return null;
+        return prev === photos.length - 1 ? 0 : prev + 1;
+      });
+      setIsAnimating(false);
+    }, 200);
+  }, [photos.length, isAnimating]);
+
+  // Touch event handlers for swipe
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = null;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+
+    const distance = touchStartX.current - touchEndX.current;
+    const isSwipe = Math.abs(distance) > minSwipeDistance;
+
+    if (isSwipe) {
+      if (distance > 0) {
+        // Swiped left -> go to next
+        goToNext();
+      } else {
+        // Swiped right -> go to prev
+        goToPrev();
+      }
+    }
+
+    touchStartX.current = null;
+    touchEndX.current = null;
+  }, [goToNext, goToPrev]);
 
   useEffect(() => {
     if (selectedIndex === null) return;
@@ -66,6 +121,15 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
   }, [selectedIndex, closeLightbox, goToPrev, goToNext]);
 
   const selectedPhoto = selectedIndex !== null ? photos[selectedIndex] : null;
+
+  // Determine animation class for slide effect
+  const getSlideClass = () => {
+    if (!slideDirection) return "animate-[fadeIn_200ms_ease-out]";
+    if (slideDirection === "left") {
+      return "animate-[slideInFromRight_250ms_ease-out]";
+    }
+    return "animate-[slideInFromLeft_250ms_ease-out]";
+  };
 
   return (
     <>
@@ -98,6 +162,9 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={closeLightbox}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Close Button */}
           <button
@@ -120,8 +187,56 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
             </svg>
           </button>
 
-          {/* Previous Button */}
+          {/* Toggle Arrows Button */}
           {photos.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowArrows((prev) => !prev);
+              }}
+              className="absolute top-4 left-4 z-50 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-all duration-200"
+              aria-label={showArrows ? "Hide navigation arrows" : "Show navigation arrows"}
+            >
+              {showArrows ? (
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m7.532 7.532l3.29 3.29M3 3l18 18"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+              )}
+            </button>
+          )}
+
+          {/* Previous Button */}
+          {photos.length > 1 && showArrows && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -148,7 +263,8 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
 
           {/* Photo Container */}
           <div
-            className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center"
+            key={selectedIndex}
+            className={`relative max-w-[90vw] max-h-[90vh] flex flex-col items-center ${getSlideClass()}`}
             onClick={(e) => e.stopPropagation()}
           >
             <img
@@ -168,7 +284,7 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
           </div>
 
           {/* Next Button */}
-          {photos.length > 1 && (
+          {photos.length > 1 && showArrows && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -194,6 +310,40 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
           )}
         </div>
       )}
+
+      {/* Keyframe animations for slide transitions */}
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        @keyframes slideInFromRight {
+          from {
+            opacity: 0;
+            transform: translateX(60px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes slideInFromLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-60px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </>
   );
 }
