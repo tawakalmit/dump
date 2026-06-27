@@ -42,7 +42,7 @@ export default async function AlbumDetailPage({ params }: PageProps) {
     <main className="flex flex-col flex-1">
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         <Link
-          href="/"
+          href={`/${expectedCategory}`}
           className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-6"
         >
           <svg

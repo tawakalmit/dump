@@ -62,7 +62,7 @@ export default function AlbumCard({ album, photoCount }: AlbumCardProps) {
             </svg>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-100 transition-opacity duration-300" />
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <h3 className="text-white font-semibold text-lg truncate drop-shadow-lg">
             {album.name}
