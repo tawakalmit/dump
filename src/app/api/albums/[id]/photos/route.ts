@@ -3,12 +3,17 @@ import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import cloudinary from "@/lib/cloudinary";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-msvideo",
+  "video/x-matroska",
 ];
 
 export async function GET(
@@ -54,7 +59,7 @@ export async function POST(
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File size exceeds maximum of 50MB" },
+        { error: "File size exceeds maximum of 100MB" },
         { status: 400 }
       );
     }
@@ -64,7 +69,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Invalid file type. Allowed types: JPEG, PNG, GIF, WebP",
+            "Invalid file type. Allowed types: JPEG, PNG, GIF, WebP, MP4, MOV, WebM, AVI, MKV",
         },
         { status: 400 }
       );
@@ -74,26 +79,36 @@ export async function POST(
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Upload to Cloudinary
+    // Upload to Cloudinary (auto detects image vs video)
     const uploadResult = await new Promise<{
       secure_url: string;
       public_id: string;
+      resource_type: string;
     }>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: `dump/albums/${id}`,
-          resource_type: "image",
+          resource_type: "auto",
         },
         (error, result) => {
           if (error) {
             reject(error);
           } else {
-            resolve(result as { secure_url: string; public_id: string });
+            resolve(
+              result as {
+                secure_url: string;
+                public_id: string;
+                resource_type: string;
+              }
+            );
           }
         }
       );
       uploadStream.end(buffer);
     });
+
+    const mediaType =
+      uploadResult.resource_type === "video" ? "video" : "image";
 
     // Insert photo record with Cloudinary URL
     const { data, error } = await supabase
@@ -102,6 +117,7 @@ export async function POST(
         album_id: id,
         url: uploadResult.secure_url,
         storage_path: uploadResult.public_id,
+        media_type: mediaType,
         caption: caption?.trim() || null,
       })
       .select()
@@ -109,7 +125,9 @@ export async function POST(
 
     if (error) {
       // Clean up uploaded file from Cloudinary if record creation fails
-      await cloudinary.uploader.destroy(uploadResult.public_id);
+      await cloudinary.uploader.destroy(uploadResult.public_id, {
+        resource_type: uploadResult.resource_type,
+      });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

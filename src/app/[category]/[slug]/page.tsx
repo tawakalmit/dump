@@ -1,16 +1,17 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import slugify from "@/lib/slugify";
 import PhotoGallery from "@/components/PhotoGallery";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ category: string; slug: string }>;
 }
 
 export default async function AlbumDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { category, slug } = await params;
 
   const { data: album, error: albumError } = await supabase
     .from("albums")
@@ -20,6 +21,15 @@ export default async function AlbumDetailPage({ params }: PageProps) {
 
   if (albumError || !album) {
     notFound();
+  }
+
+  // Redirect to the canonical category path if it doesn't match.
+  const expectedCategory = album.category
+    ? slugify(album.category)
+    : "uncategorized";
+
+  if (category !== expectedCategory) {
+    redirect(`/${expectedCategory}/${album.slug}`);
   }
 
   const { data: photos } = await supabase
@@ -52,6 +62,11 @@ export default async function AlbumDetailPage({ params }: PageProps) {
         </Link>
 
         <div className="mb-8">
+          {album.category && (
+            <p className="text-red-400 text-sm font-medium uppercase tracking-wide mb-2">
+              {album.category}
+            </p>
+          )}
           <h1 className="text-4xl sm:text-5xl font-bold text-white">
             {album.name}
           </h1>

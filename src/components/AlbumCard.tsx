@@ -1,6 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getCloudinaryThumbnail } from "@/lib/cloudinary-url";
+import {
+  getCloudinaryThumbnail,
+  getCloudinaryVideoThumbnail,
+  isVideo,
+} from "@/lib/cloudinary-url";
+import slugify from "@/lib/slugify";
 
 interface Album {
   id: string;
@@ -8,6 +13,7 @@ interface Album {
   slug: string;
   cover_photo_url: string | null;
   description: string | null;
+  category: string | null;
 }
 
 interface AlbumCardProps {
@@ -16,12 +22,23 @@ interface AlbumCardProps {
 }
 
 export default function AlbumCard({ album, photoCount }: AlbumCardProps) {
+  const categorySlug = album.category
+    ? slugify(album.category)
+    : "uncategorized";
+
   return (
-    <Link href={`/${album.slug}`} className="group block break-inside-avoid mb-4">
+    <Link
+      href={`/${categorySlug}/${album.slug}`}
+      className="group block break-inside-avoid mb-4"
+    >
       <div className="relative overflow-hidden rounded-2xl bg-gray-800 shadow-lg transition-transform duration-300 group-hover:scale-[1.02] group-hover:shadow-2xl">
         {album.cover_photo_url ? (
           <Image
-            src={getCloudinaryThumbnail(album.cover_photo_url, 600)}
+            src={
+              isVideo(album.cover_photo_url)
+                ? getCloudinaryVideoThumbnail(album.cover_photo_url, 600)
+                : getCloudinaryThumbnail(album.cover_photo_url, 600)
+            }
             alt={album.name}
             width={400}
             height={300}

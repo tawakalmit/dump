@@ -38,6 +38,8 @@ export async function PUT(
     if (body.name !== undefined) updates.name = body.name.trim();
     if (body.description !== undefined)
       updates.description = body.description?.trim() || null;
+    if (body.category !== undefined)
+      updates.category = body.category?.trim() || null;
     if (body.cover_photo_url !== undefined)
       updates.cover_photo_url = body.cover_photo_url;
 

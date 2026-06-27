@@ -49,6 +49,12 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
           <div className="flex items-center gap-4">
             <Link
+              href="/admin/categories"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-lg border border-gray-700 transition-colors"
+            >
+              Categories
+            </Link>
+            <Link
               href="/admin/albums/new"
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
             >

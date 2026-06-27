@@ -61,3 +61,46 @@ export function getCloudinaryOptimized(
 
   return insertTransformation(url, `w_${width},q_auto,f_auto`);
 }
+
+/**
+ * Determines whether a media item is a video.
+ * Prefers the explicit `mediaType` when available, otherwise falls back to
+ * inspecting the Cloudinary URL (video assets are served from `/video/upload/`).
+ *
+ * @param url - Media URL
+ * @param mediaType - Optional explicit media type ("image" | "video")
+ */
+export function isVideo(
+  url: string,
+  mediaType?: string | null
+): boolean {
+  if (mediaType) {
+    return mediaType === "video";
+  }
+  return !!url && url.includes("/video/upload/");
+}
+
+/**
+ * Generates a still-image thumbnail (poster) from a Cloudinary video URL.
+ * Cloudinary creates a thumbnail when a video asset is requested with an
+ * image extension (e.g. `.jpg`), so we swap the extension and apply transforms.
+ *
+ * @param url - Original Cloudinary video URL
+ * @param width - Target width in pixels (default: 600)
+ */
+export function getCloudinaryVideoThumbnail(
+  url: string,
+  width: number = 600
+): string {
+  if (!url || !url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  const withTransform = insertTransformation(
+    url,
+    `w_${width},q_auto,c_fill`
+  );
+
+  // Swap the video file extension for `.jpg` to request a poster frame.
+  return withTransform.replace(/\.(mp4|mov|webm|avi|mkv|ogv|m4v)$/i, ".jpg");
+}

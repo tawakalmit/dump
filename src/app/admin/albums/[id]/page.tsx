@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { isVideo, getCloudinaryVideoThumbnail } from "@/lib/cloudinary-url";
 
 interface Album {
   id: string;
@@ -10,6 +11,7 @@ interface Album {
   slug: string;
   cover_photo_url: string | null;
   description: string | null;
+  category: string | null;
   created_at: string;
 }
 
@@ -19,7 +21,13 @@ interface Photo {
   url: string;
   caption: string | null;
   storage_path: string;
+  media_type: string | null;
   created_at: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 type UploadFileStatus = "pending" | "uploading" | "done" | "failed";
@@ -49,6 +57,8 @@ export default function EditAlbumPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Upload state
   const [uploadFiles, setUploadFiles] = useState<UploadFileState[]>([]);
@@ -79,6 +89,7 @@ export default function EditAlbumPage() {
         setAlbum(data);
         setName(data.name);
         setDescription(data.description || "");
+        setCategory(data.category || "");
       }
     } catch {
       console.error("Failed to fetch album");
@@ -97,13 +108,24 @@ export default function EditAlbumPage() {
     }
   }, [albumId]);
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/categories");
+      if (res.ok) {
+        setCategories(await res.json());
+      }
+    } catch {
+      console.error("Failed to fetch categories");
+    }
+  }, []);
+
   useEffect(() => {
     const load = async () => {
-      await Promise.all([fetchAlbum(), fetchPhotos()]);
+      await Promise.all([fetchAlbum(), fetchPhotos(), fetchCategories()]);
       setLoading(false);
     };
     load();
-  }, [fetchAlbum, fetchPhotos]);
+  }, [fetchAlbum, fetchPhotos, fetchCategories]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +136,7 @@ export default function EditAlbumPage() {
       const res = await fetch(`/api/albums/${albumId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, category }),
       });
 
       if (res.ok) {
@@ -153,7 +175,7 @@ export default function EditAlbumPage() {
         formData.append("folder", `dump/albums/${albumId}`);
 
         const cloudinaryRes = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
           {
             method: "POST",
             body: formData,
@@ -176,7 +198,7 @@ export default function EditAlbumPage() {
         }
 
         const cloudinaryData = await cloudinaryRes.json();
-        const { secure_url, public_id } = cloudinaryData;
+        const { secure_url, public_id, resource_type } = cloudinaryData;
 
         // Step 2: Save photo record to database via lightweight API route
         const saveRes = await fetch(`/api/albums/${albumId}/photos/save`, {
@@ -185,6 +207,7 @@ export default function EditAlbumPage() {
           body: JSON.stringify({
             url: secure_url,
             public_id: public_id,
+            resource_type: resource_type,
           }),
         });
 
@@ -467,6 +490,45 @@ export default function EditAlbumPage() {
 
             <div>
               <label
+                htmlFor="category"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                Category
+              </label>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+              >
+                <option value="">No category</option>
+                {/* Preserve a previously-set value that is no longer in the list */}
+                {category &&
+                  !categories.some((cat) => cat.name === category) && (
+                    <option value={category}>{category} (removed)</option>
+                  )}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              {categories.length === 0 && (
+                <p className="text-gray-500 text-xs mt-2">
+                  No categories yet.{" "}
+                  <Link
+                    href="/admin/categories"
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    Add categories
+                  </Link>{" "}
+                  to use them here.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
                 htmlFor="description"
                 className="block text-sm font-medium text-gray-300 mb-2"
               >
@@ -493,13 +555,13 @@ export default function EditAlbumPage() {
 
         {/* Photo Upload Section */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-8">
-          <h2 className="text-xl font-bold text-white mb-4">Upload Photos</h2>
+          <h2 className="text-xl font-bold text-white mb-4">Upload Media</h2>
           <div className="flex items-center gap-4">
             <label className="flex-1 relative">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 onChange={handleUpload}
                 disabled={isUploading}
@@ -526,7 +588,7 @@ export default function EditAlbumPage() {
                       : "Click to upload or drag and drop"}
                   </p>
                   <p className="text-gray-500 text-xs mt-1">
-                    PNG, JPG, GIF, WebP - supports 100+ files at once
+                    Images (PNG, JPG, GIF, WebP) & videos (MP4, MOV, WebM) - supports 100+ files at once
                   </p>
                 </div>
               </div>
@@ -685,11 +747,20 @@ export default function EditAlbumPage() {
                           className="relative group bg-gray-900 rounded-lg overflow-hidden border border-red-500/40"
                         >
                           <div className="aspect-square relative">
-                            <img
-                              src={item.previewUrl}
-                              alt={item.file.name}
-                              className="w-full h-full object-cover opacity-70"
-                            />
+                            {item.file.type.startsWith("video/") ? (
+                              <video
+                                src={item.previewUrl}
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover opacity-70"
+                              />
+                            ) : (
+                              <img
+                                src={item.previewUrl}
+                                alt={item.file.name}
+                                className="w-full h-full object-cover opacity-70"
+                              />
+                            )}
                             <div className="absolute inset-0 bg-red-900/20" />
                             <div className="absolute top-1 right-1">
                               <svg className="w-5 h-5 text-red-400 drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -751,11 +822,28 @@ export default function EditAlbumPage() {
                     } transition-colors`}
                   >
                     <div className="aspect-square relative">
-                      <img
-                        src={photo.url}
-                        alt={photo.caption || "Photo"}
-                        className="w-full h-full object-cover"
-                      />
+                      {isVideo(photo.url, photo.media_type) ? (
+                        <>
+                          <img
+                            src={getCloudinaryVideoThumbnail(photo.url, 400)}
+                            alt={photo.caption || "Video"}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-10 h-10 flex items-center justify-center bg-black/50 rounded-full">
+                              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <img
+                          src={photo.url}
+                          alt={photo.caption || "Photo"}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                       {isCover && (
                         <div className="absolute top-2 left-2 px-2 py-1 bg-red-600 text-white text-xs font-medium rounded-md">
                           Cover

@@ -2,12 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import MasonryGrid from "./MasonryGrid";
-import { getCloudinaryOptimized } from "@/lib/cloudinary-url";
+import {
+  getCloudinaryOptimized,
+  getCloudinaryVideoThumbnail,
+  isVideo,
+} from "@/lib/cloudinary-url";
 
 interface Photo {
   id: string;
   url: string;
   caption?: string | null;
+  media_type?: string | null;
 }
 
 interface PhotoGalleryProps {
@@ -141,12 +146,30 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
             onClick={() => openLightbox(index)}
           >
             <div className="relative overflow-hidden">
-              <img
-                src={getCloudinaryOptimized(photo.url, 800)}
-                alt={photo.caption || "Photo"}
-                className="w-full h-auto group-hover:brightness-90 transition-all duration-300"
-                loading="lazy"
-              />
+              {isVideo(photo.url, photo.media_type) ? (
+                <>
+                  <img
+                    src={getCloudinaryVideoThumbnail(photo.url, 800)}
+                    alt={photo.caption || "Video"}
+                    className="w-full h-auto group-hover:brightness-90 transition-all duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-14 h-14 flex items-center justify-center bg-black/50 group-hover:bg-black/60 rounded-full transition-colors">
+                      <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <img
+                  src={getCloudinaryOptimized(photo.url, 800)}
+                  alt={photo.caption || "Photo"}
+                  className="w-full h-auto group-hover:brightness-90 transition-all duration-300"
+                  loading="lazy"
+                />
+              )}
             </div>
             {photo.caption && (
               <div className="p-3">
@@ -267,11 +290,21 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
             className={`relative max-w-[90vw] max-h-[90vh] flex flex-col items-center ${getSlideClass()}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={selectedPhoto.url}
-              alt={selectedPhoto.caption || "Photo preview"}
-              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-            />
+            {isVideo(selectedPhoto.url, selectedPhoto.media_type) ? (
+              <video
+                src={selectedPhoto.url}
+                controls
+                autoPlay
+                playsInline
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+            ) : (
+              <img
+                src={selectedPhoto.url}
+                alt={selectedPhoto.caption || "Photo preview"}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+            )}
             {selectedPhoto.caption && (
               <p className="mt-4 text-white/90 text-center text-sm sm:text-base max-w-lg">
                 {selectedPhoto.caption}

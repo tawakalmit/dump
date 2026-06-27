@@ -13,7 +13,7 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { url, public_id, caption } = body;
+    const { url, public_id, caption, resource_type } = body;
 
     if (!url || !public_id) {
       return NextResponse.json(
@@ -22,12 +22,19 @@ export async function POST(
       );
     }
 
+    // Derive media type from Cloudinary's resource_type, falling back to URL.
+    const mediaType =
+      resource_type === "video" || url.includes("/video/upload/")
+        ? "video"
+        : "image";
+
     const { data, error } = await supabase
       .from("photos")
       .insert({
         album_id: id,
         url,
         storage_path: public_id,
+        media_type: mediaType,
         caption: caption?.trim() || null,
       })
       .select()

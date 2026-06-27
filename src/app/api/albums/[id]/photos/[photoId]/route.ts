@@ -15,7 +15,7 @@ export async function DELETE(
   // Get photo to find Cloudinary public_id (stored in storage_path)
   const { data: photo, error: fetchError } = await supabase
     .from("photos")
-    .select("storage_path")
+    .select("storage_path, media_type, url")
     .eq("id", photoId)
     .single();
 
@@ -23,9 +23,15 @@ export async function DELETE(
     return NextResponse.json({ error: fetchError.message }, { status: 404 });
   }
 
-  // Delete from Cloudinary
+  // Delete from Cloudinary (videos require resource_type: "video")
   if (photo.storage_path) {
-    await cloudinary.uploader.destroy(photo.storage_path);
+    const resourceType =
+      photo.media_type === "video" || photo.url?.includes("/video/upload/")
+        ? "video"
+        : "image";
+    await cloudinary.uploader.destroy(photo.storage_path, {
+      resource_type: resourceType,
+    });
   }
 
   // Delete record

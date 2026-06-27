@@ -1,15 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 export default function NewAlbumPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/categories");
+        if (res.ok) {
+          setCategories(await res.json());
+        }
+      } catch {
+        console.error("Failed to fetch categories");
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +47,7 @@ export default function NewAlbumPage() {
       const res = await fetch("/api/albums", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, category }),
       });
 
       if (res.ok) {
@@ -83,6 +104,40 @@ export default function NewAlbumPage() {
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
                 placeholder="Enter album name"
               />
+            </div>
+
+            <div>
+              <label
+                htmlFor="category"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                Category
+              </label>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+              >
+                <option value="">No category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              {categories.length === 0 && (
+                <p className="text-gray-500 text-xs mt-2">
+                  No categories yet.{" "}
+                  <Link
+                    href="/admin/categories"
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    Add categories
+                  </Link>{" "}
+                  to use them here.
+                </p>
+              )}
             </div>
 
             <div>

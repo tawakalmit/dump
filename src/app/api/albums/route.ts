@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const { name, description } = await request.json();
+    const { name, description, category } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         slug,
         description: description?.trim() || null,
+        category: category?.trim() || null,
       })
       .select()
       .single();
