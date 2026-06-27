@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { isVideo, getCloudinaryVideoThumbnail } from "@/lib/cloudinary-url";
+import { getAdminScopeClient } from "@/lib/admin-scope";
 
 interface Album {
   id: string;
@@ -59,6 +60,7 @@ export default function EditAlbumPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [scope, setScope] = useState<string | null>(null);
 
   // Upload state
   const [uploadFiles, setUploadFiles] = useState<UploadFileState[]>([]);
@@ -120,6 +122,7 @@ export default function EditAlbumPage() {
   }, []);
 
   useEffect(() => {
+    setScope(getAdminScopeClient());
     const load = async () => {
       await Promise.all([fetchAlbum(), fetchPhotos(), fetchCategories()]);
       setLoading(false);
@@ -499,13 +502,14 @@ export default function EditAlbumPage() {
                 id="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+                disabled={!!scope}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">No category</option>
                 {/* Preserve a previously-set value that is no longer in the list */}
                 {category &&
                   !categories.some((cat) => cat.name === category) && (
-                    <option value={category}>{category} (removed)</option>
+                    <option value={category}>{category}</option>
                   )}
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.name}>
@@ -513,17 +517,25 @@ export default function EditAlbumPage() {
                   </option>
                 ))}
               </select>
-              {categories.length === 0 && (
+              {scope ? (
                 <p className="text-gray-500 text-xs mt-2">
-                  No categories yet.{" "}
-                  <Link
-                    href="/admin/categories"
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    Add categories
-                  </Link>{" "}
-                  to use them here.
+                  Category is locked to{" "}
+                  <span className="text-gray-300">{scope}</span> for your
+                  account.
                 </p>
+              ) : (
+                categories.length === 0 && (
+                  <p className="text-gray-500 text-xs mt-2">
+                    No categories yet.{" "}
+                    <Link
+                      href="/admin/categories"
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      Add categories
+                    </Link>{" "}
+                    to use them here.
+                  </p>
+                )
               )}
             </div>
 

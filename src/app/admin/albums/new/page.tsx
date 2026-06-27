@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getAdminScopeClient } from "@/lib/admin-scope";
 
 interface Category {
   id: string;
@@ -15,10 +16,18 @@ export default function NewAlbumPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [scope, setScope] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const adminScope = getAdminScopeClient();
+    setScope(adminScope);
+    if (adminScope) {
+      // Restricted admins can only create albums in their category.
+      setCategory(adminScope);
+    }
+
     const fetchCategories = async () => {
       try {
         const res = await fetch("/api/categories");
@@ -117,26 +126,40 @@ export default function NewAlbumPage() {
                 id="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+                disabled={!!scope}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <option value="">No category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
+                {scope ? (
+                  <option value={scope}>{scope}</option>
+                ) : (
+                  <>
+                    <option value="">No category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
-              {categories.length === 0 && (
+              {scope ? (
                 <p className="text-gray-500 text-xs mt-2">
-                  No categories yet.{" "}
-                  <Link
-                    href="/admin/categories"
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    Add categories
-                  </Link>{" "}
-                  to use them here.
+                  Your account can only create albums in the{" "}
+                  <span className="text-gray-300">{scope}</span> category.
                 </p>
+              ) : (
+                categories.length === 0 && (
+                  <p className="text-gray-500 text-xs mt-2">
+                    No categories yet.{" "}
+                    <Link
+                      href="/admin/categories"
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      Add categories
+                    </Link>{" "}
+                    to use them here.
+                  </p>
+                )
               )}
             </div>
 

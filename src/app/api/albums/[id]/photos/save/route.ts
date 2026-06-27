@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, isCategoryAllowed } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
@@ -10,6 +10,21 @@ export async function POST(
   if (authError) return authError;
 
   const { id } = await params;
+
+  // Enforce category scope for restricted admins.
+  const { data: album, error: albumError } = await supabase
+    .from("albums")
+    .select("category")
+    .eq("id", id)
+    .single();
+
+  if (albumError) {
+    return NextResponse.json({ error: albumError.message }, { status: 404 });
+  }
+
+  if (!isCategoryAllowed(request, album.category)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const body = await request.json();

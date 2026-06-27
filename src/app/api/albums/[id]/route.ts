@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAdminScope, isCategoryAllowed } from "@/lib/auth";
 import cloudinary from "@/lib/cloudinary";
 
 export async function GET(
@@ -19,6 +19,11 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 404 });
   }
 
+  // Enforce category scope for restricted admins.
+  if (!isCategoryAllowed(request, data.category)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json(data);
 }
 
@@ -33,13 +38,32 @@ export async function PUT(
 
   try {
     const body = await request.json();
+
+    // Verify the album is within the admin's scope before updating.
+    const { data: existing, error: fetchError } = await supabase
+      .from("albums")
+      .select("category")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 404 });
+    }
+
+    if (!isCategoryAllowed(request, existing.category)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const updates: Record<string, string | null> = {};
 
     if (body.name !== undefined) updates.name = body.name.trim();
     if (body.description !== undefined)
       updates.description = body.description?.trim() || null;
-    if (body.category !== undefined)
-      updates.category = body.category?.trim() || null;
+    if (body.category !== undefined) {
+      const scope = getAdminScope(request);
+      // Restricted admins cannot move albums out of their category.
+      updates.category = scope ? scope : body.category?.trim() || null;
+    }
     if (body.cover_photo_url !== undefined)
       updates.cover_photo_url = body.cover_photo_url;
 
@@ -71,6 +95,21 @@ export async function DELETE(
   if (authError) return authError;
 
   const { id } = await params;
+
+  // Verify the album is within the admin's scope before deleting.
+  const { data: existing, error: fetchError } = await supabase
+    .from("albums")
+    .select("category")
+    .eq("id", id)
+    .single();
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: 404 });
+  }
+
+  if (!isCategoryAllowed(request, existing.category)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // First get all photos to clean up from Cloudinary
   const { data: photos } = await supabase

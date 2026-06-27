@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAdminScope } from "@/lib/auth";
 
 export async function GET() {
   const { data, error } = await supabase
@@ -18,6 +18,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const authError = requireAuth(request);
   if (authError) return authError;
+
+  // Only full admins may manage categories.
+  if (getAdminScope(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const { name } = await request.json();

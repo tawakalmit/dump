@@ -5,6 +5,8 @@ import MasonryGrid from "./MasonryGrid";
 import {
   getCloudinaryOptimized,
   getCloudinaryVideoThumbnail,
+  getCloudinaryVideoSrc,
+  getCloudinaryDownloadUrl,
   isVideo,
 } from "@/lib/cloudinary-url";
 
@@ -210,6 +212,29 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
             </svg>
           </button>
 
+          {/* Download Button */}
+          <a
+            href={getCloudinaryDownloadUrl(selectedPhoto.url)}
+            download
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-4 right-16 z-50 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-all duration-200"
+            aria-label="Download"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+          </a>
+
           {/* Toggle Arrows Button */}
           {photos.length > 1 && (
             <button
@@ -292,11 +317,11 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
           >
             {isVideo(selectedPhoto.url, selectedPhoto.media_type) ? (
               <video
-                src={selectedPhoto.url}
+                src={getCloudinaryVideoSrc(selectedPhoto.url)}
                 controls
                 autoPlay
                 playsInline
-                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                className="w-[90vw] max-w-4xl max-h-[85vh] object-contain rounded-lg shadow-2xl bg-black"
               />
             ) : (
               <img

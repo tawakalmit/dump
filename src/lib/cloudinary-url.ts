@@ -63,6 +63,43 @@ export function getCloudinaryOptimized(
 }
 
 /**
+ * Returns a URL that forces the browser to download the asset instead of
+ * displaying it inline, using Cloudinary's `fl_attachment` flag.
+ *
+ * @param url - Original Cloudinary URL (image or video)
+ */
+export function getCloudinaryDownloadUrl(url: string): string {
+  if (!url || !url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  return insertTransformation(url, "fl_attachment");
+}
+
+/**
+ * Returns a browser-playable video source URL.
+ *
+ * Many source videos use codecs that browsers cannot play in a `<video>`
+ * element (e.g. MPEG-4 Part 2, H.263 in .3gp). This asks Cloudinary to
+ * transcode the delivery to H.264 inside an MP4 container on the fly.
+ *
+ * @param url - Original Cloudinary video URL
+ */
+export function getCloudinaryVideoSrc(url: string): string {
+  if (!url || !url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  const withTransform = insertTransformation(url, "vc_h264,q_auto");
+
+  // Force an MP4 container/extension so non-mp4 sources (.3gp, .mov, ...) play.
+  return withTransform.replace(
+    /\.(3gp|mov|avi|mkv|webm|ogv|m4v)$/i,
+    ".mp4"
+  );
+}
+
+/**
  * Determines whether a media item is a video.
  * Prefers the explicit `mediaType` when available, otherwise falls back to
  * inspecting the Cloudinary URL (video assets are served from `/video/upload/`).
